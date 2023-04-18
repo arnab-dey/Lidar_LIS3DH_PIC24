@@ -36,13 +36,35 @@
 #define I2C_READ 1
 
 #define LIS3DH_ADDRESS 0x18
+#define LIS3DH_DATARATE_POWERDOWN (0b0000)
+#define LIS3DH_DATARATE_1HZ (0b0001)
+#define LIS3DH_DATARATE_10HZ (0b0010)
+#define LIS3DH_DATARATE_25HZ (0b0011)
+#define LIS3DH_DATARATE_50HZ (0b0100)
+#define LIS3DH_DATARATE_100HZ (0b0101)
+#define LIS3DH_DATARATE_200HZ (0b0110)
+#define LIS3DH_DATARATE_400HZ (0b0111)
+#define LIS3DH_DATARATE_LOWPOWER_1_6KHZ (0b1000)
+#define LIS3DH_DATARATE_LOWPOWER_5KHZ (0b1001)
+#define LIS3DH_RANGE_2G (0b00)
+#define LIS3DH_RANGE_4G (0b01)
+#define LIS3DH_RANGE_8G (0b10)
+#define LIS3DH_RANGE_16G (0b11)
 
+#define STANDARD_GRAVITY (9.806)
+#define ADDRESS_AUTO_INCREMENT (0x80)
+#define POWER_MODE_LOW 0
+#define POWER_MODE_NORMAL 1
+#define POWER_MODE_HIGH_RESOLUTION 2
 // Register address
 #define LIS3DH_REG_WHO_AM_I (0x0F)
 #define LIS3DH_REG_CTRL5 (0x24)
 #define LIS3DH_REG_CTRL1 (0x20)
 #define LIS3DH_REG_CTRL4 (0x23)
 #define LIS3DH_REG_TEMPCFG (0x1F)
+#define LIS3DH_REG_OUT_X_L (0x28)
+#define LIS3DH_REG_OUT_Y_L (0x2A)
+#define LIS3DH_REG_OUT_Z_L (0x2C)
 
 void write(const uint8_t *buffer, size_t len, bool stop);
 void read(uint8_t *buffer, size_t len, bool stop);
@@ -53,6 +75,11 @@ uint8_t read8(uint8_t reg);
 uint16_t read16(uint8_t reg);
 bool sensor_init();
 void delay_ms(uint16_t ms);
+uint8_t get_datarate();
+void set_datarate(uint8_t datarate);
+uint8_t get_range();
+void set_range(uint8_t range);
+void get_acceleration(float *x, float *y, float *z);
 
 // TODO Insert appropriate #include <>
 

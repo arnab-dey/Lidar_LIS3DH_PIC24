@@ -50,7 +50,11 @@ int main(void){
     delay_ms(100);
     isSensorInitialized = sensor_init();
     delay_ms(100);
+    float acc_x;
+    float acc_y;
+    float acc_z;
     while(1){
+        get_acceleration(&acc_x, &acc_y, &acc_z);
         delay_ms(100);
     }
     return 0;

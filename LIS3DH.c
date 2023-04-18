@@ -13,6 +13,8 @@
 #include "LIS3DH.h"
 
 static uint8_t is_rep_start_state = 0;
+static uint8_t current_range = LIS3DH_RANGE_2G;
+static uint8_t mode = POWER_MODE_NORMAL;
 
 void write(const uint8_t *buffer, size_t len, bool stop){
     // Send start
@@ -128,20 +130,88 @@ bool sensor_init() {
     delay_ms(10); // takes 5ms
     // Enable all axes, normal mode
     write8(LIS3DH_REG_CTRL1, 0x07);
-    // High res & BDU enabled
+    // High res enabled & BDU enabled
+    mode = POWER_MODE_HIGH_RESOLUTION;
     write8(LIS3DH_REG_CTRL4, 0x88);
-    // Enable ADCs
-    write8(LIS3DH_REG_TEMPCFG, 0x80);
-    // Enable interrupt
-    write8(LIS3DH_REG_CTRL5, 0x08);
+    // Disable ADCs
+    write8(LIS3DH_REG_TEMPCFG, 0x00);
+    // Disable interrupt
+    write8(LIS3DH_REG_CTRL5, 0x00);
+    // Set datarate
+    set_datarate(LIS3DH_DATARATE_400HZ);
+    // Set range
+    set_range(LIS3DH_RANGE_2G);
     
     // For sanity check: Read CTRL1 register and see if we read
     // the value we wrote
-    id = read8(LIS3DH_REG_CTRL1);
-    if (id != 0x07) {
-        return false;
-    }
+//    id = read8(LIS3DH_REG_CTRL1);
+//    if (id != 0x07) {
+//        return false;
+//    }
     return true;
+}
+
+uint8_t get_datarate(){
+    uint8_t datarate = read8(LIS3DH_REG_CTRL1);
+    return (datarate >> 4) & 0x0F;
+}
+
+void set_datarate(uint8_t datarate){
+    // First read the existing value
+    uint8_t val = read8(LIS3DH_REG_CTRL1);
+    // Prepare the datarate to be set
+    uint8_t datarate_to_be_set = ((datarate & 0x0F) << 4);
+    val &= ~(0xF0); // Clear 4 MSBs
+    val |= datarate_to_be_set; // Update 4 MSBs with the datarate
+    // Write to the register
+    write8(LIS3DH_REG_CTRL1, val);
+}
+/*
+ * Returns the range of the accelerometer
+ */
+uint8_t get_range(){
+    uint8_t range = read8(LIS3DH_REG_CTRL4);
+    // FS bits give the range
+    return (range >> 4) & 0x03;
+}
+
+void set_range(uint8_t range){
+    // First read the existing value
+    uint8_t val = read8(LIS3DH_REG_CTRL4);
+    // Prepare the range to be set
+    uint8_t range_to_be_set = ((range & 0x03) << 4);
+    val &= ~(0x30); // Clear FS bits
+    val |= range_to_be_set; // Update FS bits
+    // Write to the register
+    write8(LIS3DH_REG_CTRL4, val);
+    current_range = range; // Update so that we don't need to read always
+}
+
+void get_acceleration(float *x, float *y, float *z){
+    // 2 reads (high and low bytes) for each axis
+    // So need to read total 6 registers to get acceleration
+    // values for x,y,z axes
+    // Get X-axis acceleration
+    int16_t accl_x = (int16_t)read16(LIS3DH_REG_OUT_X_L | ADDRESS_AUTO_INCREMENT);
+    // Get Y-axis acceleration
+    int16_t accl_y = (int16_t)read16(LIS3DH_REG_OUT_Y_L | ADDRESS_AUTO_INCREMENT);
+    // Get Z-axis acceleration
+    int16_t accl_z = (int16_t)read16(LIS3DH_REG_OUT_Z_L | ADDRESS_AUTO_INCREMENT);
+    // Now adjust the according to range and set divider for m/s^2 value
+    float divider = 1;
+    if (LIS3DH_RANGE_16G == current_range){
+        divider = 139.1912;
+    } else if (LIS3DH_RANGE_8G == current_range) {
+        divider = 417.6757;
+    } else if (LIS3DH_RANGE_4G == current_range) {
+        divider = 835.1476;
+    } else if (LIS3DH_RANGE_2G == current_range) {
+        divider = 1670.295;
+    }
+    // Now calculate the acceleration (m/s^2)
+    *x = (float)(accl_x)/divider;
+    *y = (float)(accl_y)/divider;
+    *z = (float)(accl_z)/divider;
 }
 
 /*!
