@@ -199,19 +199,119 @@ void get_acceleration(float *x, float *y, float *z){
     int16_t accl_z = (int16_t)read16(LIS3DH_REG_OUT_Z_L | ADDRESS_AUTO_INCREMENT);
     // Now adjust the according to range and set divider for m/s^2 value
     float divider = 1;
-    if (LIS3DH_RANGE_16G == current_range){
-        divider = 139.1912;
-    } else if (LIS3DH_RANGE_8G == current_range) {
-        divider = 417.6757;
-    } else if (LIS3DH_RANGE_4G == current_range) {
-        divider = 835.1476;
-    } else if (LIS3DH_RANGE_2G == current_range) {
-        divider = 1670.295;
+    switch(mode){
+        // Calculation equation
+        // A: Hi-res: Output is 12 bit left-adjusted: First need to make it right
+        // adjusted = divide by (1<<4)
+        // In case of normal power mode, output is 10 bit left-adjusted: So
+        // divide by (1<<6)
+        // In case of low poer mode, output is 8 bit left-adjusted: So
+        // divide by (1<<8)
+        // B: Sensitivity unit is mg/digit: Convert to to g/digit
+        // So divide by 1000 which is converted to 1024 for ease
+        // of calculation as per the data sheet
+        // C: Then multiply by sensitivity
+        // D: Convert to m/s^2: multiply by STANDARD_GRAVITY (~9.806 m/s^2)
+        // Total conversion factor = C*D/(A*B)
+        // We use divider notation; so our divider will be (A*B)/(C*D)
+        case POWER_MODE_HIGH_RESOLUTION: 
+            if (LIS3DH_RANGE_16G == current_range){
+                divider = ((float)(1 << 4)*(float)1024)/(float)(LIS3DH_SENSITIVITY_HIRES_16G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_8G == current_range) {
+                divider = ((float)(1 << 4)*(float)1024)/(float)(LIS3DH_SENSITIVITY_HIRES_8G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_4G == current_range) {
+                divider = ((float)(1 << 4)*(float)1024)/(float)(LIS3DH_SENSITIVITY_HIRES_4G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_2G == current_range) {
+                divider = ((float)(1 << 4)*(float)1024)/(float)(LIS3DH_SENSITIVITY_HIRES_2G*STANDARD_GRAVITY);
+            }
+            break;
+        case POWER_MODE_NORMAL:
+            if (LIS3DH_RANGE_16G == current_range){
+                divider = ((float)(1 << 6)*(float)1024)/(float)(LIS3DH_SENSITIVITY_NORMAL_16G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_8G == current_range) {
+                divider = ((float)(1 << 6)*(float)1024)/(float)(LIS3DH_SENSITIVITY_NORMAL_8G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_4G == current_range) {
+                divider = ((float)(1 << 6)*(float)1024)/(float)(LIS3DH_SENSITIVITY_NORMAL_4G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_2G == current_range) {
+                divider = ((float)(1 << 6)*(float)1024)/(float)(LIS3DH_SENSITIVITY_NORMAL_2G*STANDARD_GRAVITY);
+            }
+            break;
+        case POWER_MODE_LOW:
+            if (LIS3DH_RANGE_16G == current_range){
+                divider = ((float)(1 << 8)*(float)1024)/(float)(LIS3DH_SENSITIVITY_LOWPOWER_16G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_8G == current_range) {
+                divider = ((float)(1 << 8)*(float)1024)/(float)(LIS3DH_SENSITIVITY_LOWPOWER_8G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_4G == current_range) {
+                divider = ((float)(1 << 8)*(float)1024)/(float)(LIS3DH_SENSITIVITY_LOWPOWER_4G*STANDARD_GRAVITY);
+            } else if (LIS3DH_RANGE_2G == current_range) {
+                divider = ((float)(1 << 8)*(float)1024)/(float)(LIS3DH_SENSITIVITY_LOWPOWER_2G*STANDARD_GRAVITY);
+            }
+            break;
+        default:
+            break;
     }
     // Now calculate the acceleration (m/s^2)
     *x = (float)(accl_x)/divider;
     *y = (float)(accl_y)/divider;
     *z = (float)(accl_z)/divider;
+}
+
+/* Detect when the accelerometer is shaken
+* @param threshold: Increase or decrease to change shake sensitivity.
+*   This requires a minimum value of 10.
+*   10 is the total acceleration if the board is not
+*   moving, therefore anything less than
+*   10 will erroneously report a constant shake detected.
+*
+* @param avg_count: The number of readings taken and used for the average
+*  acceleration.
+* @param total_delay_ms: The total time in milliseconds it takes to obtain avg_count
+*  readings from acceleration.
+*/
+bool is_shaken(double threshold, uint16_t avg_count, uint16_t total_delay_ms){
+    float acc_x = 0, acc_y = 0, acc_z = 0;
+    double total_acc_x = 0, total_acc_y = 0, total_acc_z = 0;
+    double avg_acc_x, avg_acc_y, avg_acc_z, total_avg_acc;
+    uint8_t i;
+    uint16_t delay_per_count_ms = total_delay_ms/avg_count;
+    for (i=0;i<avg_count;i++){
+        get_acceleration(&acc_x, &acc_y, &acc_z);
+        total_acc_x += acc_x;
+        total_acc_y += acc_y;
+        total_acc_z += acc_z;
+        delay_ms(delay_per_count_ms);
+    }
+    avg_acc_x = (double)total_acc_x/(double)avg_count;
+    avg_acc_y = (double)total_acc_y/(double)avg_count;
+    avg_acc_z = (double)total_acc_z/(double)avg_count;
+    total_avg_acc = sqrt((avg_acc_x*avg_acc_x) + (avg_acc_y*avg_acc_y) + (avg_acc_z*avg_acc_z));
+    return total_avg_acc > threshold;
+}
+
+void get_tilt_angle(double *pitch, double *roll){
+    // Pitch: Angle in X-Z plane (0 degree along X-axis)
+    // Roll: Angle in Y-Z plane (0 degree along Y-axis)
+    // Yaw: Not possible to estimate from 3-axis accelerometer
+    float acc_x, acc_y, acc_z;
+    get_acceleration(&acc_x, &acc_y, &acc_z);
+    *pitch = atan((acc_x)/(sqrt(acc_y*acc_y+ acc_z*acc_z)))*(180.0/PI);
+    *roll = atan(acc_y/(sqrt(acc_x*acc_x+acc_z*acc_z)))*(180.0/PI);
+    // Pitch quadrant determination
+    if ((acc_z < 0.0) && (acc_x >= 0.0)){
+        // Second quadrant
+        *pitch = 180.0-*pitch;
+    } else if ((acc_z < 0.0) && (acc_x < 0.0)){
+        // Third quadrant
+        *pitch = -180.0 - *pitch;
+    }
+    // Roll quadrant determination
+    if ((acc_z < 0.0) && (acc_y >= 0.0)){
+        // Second quadrant
+        *roll = 180.0-*roll;
+    } else if ((acc_z < 0.0) && (acc_y < 0.0)){
+        // Third quadrant
+        *roll = -180.0 - *roll;
+    }
 }
 
 /*!

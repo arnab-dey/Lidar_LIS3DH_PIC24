@@ -52,6 +52,24 @@
 #define LIS3DH_RANGE_16G (0b11)
 
 #define STANDARD_GRAVITY (9.806)
+#define PI (3.14159265)
+// Sensitivity for raw data to m/s^2 conversion: Refer to Table.4 datasheet
+#define LIS3DH_SENSITIVITY_HIRES_2G (1) // mg/digit
+#define LIS3DH_SENSITIVITY_NORMAL_2G (4) // mg/digit
+#define LIS3DH_SENSITIVITY_LOWPOWER_2G (16) // mg/digit
+
+#define LIS3DH_SENSITIVITY_HIRES_4G (2) // mg/digit
+#define LIS3DH_SENSITIVITY_NORMAL_4G (8) // mg/digit
+#define LIS3DH_SENSITIVITY_LOWPOWER_4G (32) // mg/digit
+
+#define LIS3DH_SENSITIVITY_HIRES_8G (4) // mg/digit
+#define LIS3DH_SENSITIVITY_NORMAL_8G (16) // mg/digit
+#define LIS3DH_SENSITIVITY_LOWPOWER_8G (64) // mg/digit
+
+#define LIS3DH_SENSITIVITY_HIRES_16G (12) // mg/digit
+#define LIS3DH_SENSITIVITY_NORMAL_16G (48) // mg/digit
+#define LIS3DH_SENSITIVITY_LOWPOWER_16G (192) // mg/digit
+
 #define ADDRESS_AUTO_INCREMENT (0x80)
 #define POWER_MODE_LOW 0
 #define POWER_MODE_NORMAL 1
@@ -80,6 +98,8 @@ void set_datarate(uint8_t datarate);
 uint8_t get_range();
 void set_range(uint8_t range);
 void get_acceleration(float *x, float *y, float *z);
+bool is_shaken(double threshold, uint16_t avg_count, uint16_t total_delay_ms);
+void get_tilt_angle(double *pitch, double *roll);
 
 // TODO Insert appropriate #include <>
 

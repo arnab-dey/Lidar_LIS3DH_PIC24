@@ -53,8 +53,12 @@ int main(void){
     float acc_x;
     float acc_y;
     float acc_z;
+    double pitch, roll;
+    uint8_t temp = 0;
     while(1){
         get_acceleration(&acc_x, &acc_y, &acc_z);
+        temp = is_shaken(15.0, 20, 100);
+        get_tilt_angle(&pitch, &roll);
         delay_ms(100);
     }
     return 0;
